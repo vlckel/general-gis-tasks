@@ -1,0 +1,53 @@
+import arcpy
+import os
+import re
+
+# Input and output directories
+input_folder = r"D:\\CZECHIA\\LASCONVERTED"
+output_base_folder = r"D:\\CZECHIA\\MOSAICS"
+arcpy.env.overwriteOutput = True
+
+# Set this to a prefix (e.g., "AS") to process only that group, or None to process all
+process_only_prefix = "OSTR"  # e.g., "AS" or "BENE" or None
+
+if not os.path.exists(output_base_folder):
+    os.makedirs(output_base_folder)
+
+# Collect LAS files by prefix
+prefix_dict = {}
+
+for root, dirs, files in os.walk(input_folder):
+    for file in files:
+        if file.lower().endswith(".las"):
+            base = os.path.splitext(file)[0]
+            prefix = re.sub(r'\d+$', '', base)
+            if process_only_prefix and prefix != process_only_prefix:
+                continue
+            las_file = os.path.join(root, file)
+            prefix_dict.setdefault(prefix, []).append(las_file)
+
+for prefix, las_files in prefix_dict.items():
+    lasd_path = os.path.join(output_base_folder, f"{prefix}.lasd")
+    raster_output = os.path.join(output_base_folder, f"{prefix}.tif")
+
+    # Create LAS dataset from all LAS files with this prefix if not exists
+    if not os.path.exists(lasd_path):
+        arcpy.management.CreateLasDataset(las_files, lasd_path)
+        print(f"Created LAS dataset: {lasd_path}")
+    else:
+        print(f"LAS dataset already exists: {lasd_path}")
+
+    # Convert the LAS dataset to raster if not exists
+    if not os.path.exists(raster_output):
+        arcpy.conversion.LasDatasetToRaster(
+            lasd_path,           # in_las_dataset
+            raster_output,       # out_raster
+            "ELEVATION",         # value_field
+            "BINNING AVERAGE LINEAR",   # interpolation_type
+            "FLOAT",             # data_type
+            "CELLSIZE",          # sampling_type
+            1                    # sampling_value
+        )
+        print(f"Converted {lasd_path} to {raster_output}")
+    else:
+        print(f"Raster already exists: {raster_output}")

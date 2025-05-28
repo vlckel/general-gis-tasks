@@ -1,0 +1,26 @@
+import requests
+import re
+import xml.etree.ElementTree as ET
+
+url = "https://api.lantmateriet.se/stac-hojd/v1"
+response = requests.get(url)
+response.raise_for_status()
+
+# Parse XML
+root = ET.fromstring(response.content)
+
+# Find all links matching the pattern
+pattern = re.compile(r"https://api\.lantmateriet\.se/stac-hojd/v1/collections/[^/]+$")
+links = set()
+
+for elem in root.iter():
+    if elem.text and pattern.match(elem.text.strip()):
+        links.add(elem.text.strip())
+    if elem.attrib:
+        for v in elem.attrib.values():
+            if pattern.match(v.strip()):
+                links.add(v.strip())
+
+# Append '/items' and print
+for link in sorted(links):
+    print(f"{link}/items")
